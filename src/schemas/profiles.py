@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Union, Any
 
 from fastapi import UploadFile
 from pydantic import BaseModel, field_validator, ConfigDict
@@ -34,11 +35,12 @@ class ProfileCreateSchema(BaseModel):
         validate_name(name=value)
         return value.lower()
 
-    @field_validator("gender")
+    @field_validator("gender", mode="before")
     @classmethod
-    def validate_gender_field(cls, value: GenderEnum) -> GenderEnum:
-        validate_gender(gender=value.value if hasattr(value, "value") else value)
-        return value
+    def validate_gender_field(cls, value: Union[str, GenderEnum, Any]) -> GenderEnum:
+        val_str = value.value if hasattr(value, "value") else value
+        validate_gender(gender=val_str)
+        return GenderEnum(val_str)
 
     @field_validator("date_of_birth")
     @classmethod
@@ -50,7 +52,7 @@ class ProfileCreateSchema(BaseModel):
     @classmethod
     def validate_info(cls, value: str) -> str:
         if not value or not value.strip():
-            raise ValueError("Info cannot be empty or consist only of spaces.")
+            raise ValueError("Info field cannot be empty or contain only spaces.")
         return value
 
     @field_validator("avatar")
@@ -61,7 +63,7 @@ class ProfileCreateSchema(BaseModel):
 
 
 class ProfileResponseSchema(BaseModel):
-    id: int # noqa
+    id: int  # noqa
     user_id: int
     first_name: str
     last_name: str

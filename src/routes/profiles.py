@@ -116,7 +116,6 @@ async def create_user_profile(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to edit this profile."
         )
-    # -------------------------------------------------------------
 
     if user_id != current_user.id:
         target_user_query = await db.execute(select(UserModel).where(UserModel.id == user_id))
