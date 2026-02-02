@@ -1,3 +1,4 @@
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks, Form, File, UploadFile, Request
@@ -103,17 +104,23 @@ async def create_user_profile(
         info: str = Form(...),
         avatar: UploadFile = File(...),
 ) -> ProfileResponseSchema:
-    is_admin = False
-    if hasattr(UserGroupEnum, "ADMIN"):
-        is_admin = current_user.group_id == UserGroupEnum.ADMIN.value
-    else:
-        is_admin = current_user.group_id == 3
+    is_admin = current_user.group_id == 3
 
     if current_user.id != user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to edit this profile."
         )
+
+    if user_id != current_user.id:
+        target_user_query = await db.execute(select(UserModel).where(UserModel.id == user_id))
+        target_user = target_user_query.scalars().first()
+
+        if not target_user or not target_user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or not active."
+            )
 
     query = select(UserProfileModel).where(UserProfileModel.user_id == user_id)
     result = await db.execute(query)
@@ -139,13 +146,15 @@ async def create_user_profile(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    file_data = await profile_data.avatar.read()
-    file_name = f"avatars/{user_id}_avatar.jpg"
-    file_url = await s3_client.get_file_url(file_name=file_name)
+    _, ext = os.path.splitext(profile_data.avatar.filename)
+    file_name = f"avatars/{user_id}_avatar{ext}" if ext else f"avatars/{user_id}_avatar"
+
+    file_content = await profile_data.avatar.read()
+
     try:
         await s3_client.upload_file(
             file_name=file_name,
-            file_data=file_data
+            file_data=file_content
         )
     except (S3ConnectionError, S3FileUploadError):
         raise HTTPException(
@@ -154,20 +163,17 @@ async def create_user_profile(
         )
 
     new_profile = UserProfileModel(
-        **profile_data.model_dump(exclude={"avatar"}),
         user_id=user_id,
-        avatar=file_url
+        first_name=profile_data.first_name,
+        last_name=profile_data.last_name,
+        gender=profile_data.gender,
+        date_of_birth=profile_data.date_of_birth,
+        info=profile_data.info,
+        avatar=file_name
     )
-    try:
-        db.add(new_profile)
-        await db.commit()
-        await db.refresh(new_profile)
 
-        return new_profile
+    db.add(new_profile)
+    await db.commit()
+    await db.refresh(new_profile)
 
-    except SQLAlchemyError:
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred during user creation."
-        )
+    return new_profile
