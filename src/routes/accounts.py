@@ -378,20 +378,24 @@ async def reset_password(
         select(PasswordResetTokenModel)
         .options(joinedload(PasswordResetTokenModel.user))
         .join(UserModel)
-        .where(
-            UserModel.email == password_reset_data.email,
-            PasswordResetTokenModel.token == password_reset_data.token
-        )
+        .where(UserModel.email == password_reset_data.email)
     )
     result = await db.execute(stmt)
     token_record = result.scalars().first()
 
     now_utc = datetime.now(timezone.utc)
 
-    if not token_record or cast(datetime, token_record.expires_at).replace(tzinfo=timezone.utc) < now_utc:
+    is_invalid = (
+        (not token_record
+         or token_record.token != password_reset_data.token
+         or cast(datetime, token_record.expires_at).replace(tzinfo=timezone.utc) < now_utc)
+    )
+
+    if is_invalid:
         if token_record:
             await db.delete(token_record)
             await db.commit()
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid email or token."
