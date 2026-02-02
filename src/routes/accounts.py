@@ -50,7 +50,7 @@ async def get_user_group(db: Annotated[AsyncSession, Depends(get_db)]) -> UserGr
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Default user group not found."
         )
-
+    return  user_group
 
 @router.post(
     "/register/",

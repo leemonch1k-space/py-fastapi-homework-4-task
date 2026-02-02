@@ -103,7 +103,11 @@ async def create_user_profile(
         info: str = Form(...),
         avatar: UploadFile = File(...),
 ) -> ProfileResponseSchema:
-    is_admin = current_user.group_id == UserGroupEnum.ADMIN.value
+    is_admin = False
+    if hasattr(UserGroupEnum, "ADMIN"):
+        is_admin = current_user.group_id == UserGroupEnum.ADMIN.value
+    else:
+        is_admin = current_user.group_id == 3
 
     if current_user.id != user_id and not is_admin:
         raise HTTPException(
@@ -136,7 +140,7 @@ async def create_user_profile(
         raise HTTPException(status_code=422, detail=str(e))
 
     file_data = await profile_data.avatar.read()
-    file_name = f"user_{user_id}"
+    file_name = f"avatars/{user_id}_avatar.jpg"
     file_url = await s3_client.get_file_url(file_name=file_name)
     try:
         await s3_client.upload_file(
