@@ -17,7 +17,8 @@ from database import (
     UserModel,
     UserProfileModel,
     GenderEnum,
-    UserGroupEnum
+    UserGroupEnum,
+    UserGroupModel
 )
 from config import get_s3_storage_client, get_jwt_auth_manager
 from notifications import EmailSenderInterface, EmailSender
@@ -99,18 +100,23 @@ async def create_user_profile(
         s3_client: Annotated[S3StorageInterface, Depends(get_s3_storage_client)],
         first_name: str = Form(...),
         last_name: str = Form(...),
-        gender: GenderEnum = Form(...),
+        gender: str = Form(...),
         date_of_birth: str = Form(...),
         info: str = Form(...),
         avatar: UploadFile = File(...),
 ) -> ProfileResponseSchema:
-    is_admin = current_user.group_id == UserGroupEnum.ADMIN.value
+    stmt = select(UserGroupModel.id).where(UserGroupModel.name == UserGroupEnum.ADMIN)
+    result = await db.execute(stmt)
+    admin_group_id = result.scalar_one_or_none()
+
+    is_admin = current_user.group_id == admin_group_id
 
     if current_user.id != user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to edit this profile."
         )
+    # -------------------------------------------------------------
 
     if user_id != current_user.id:
         target_user_query = await db.execute(select(UserModel).where(UserModel.id == user_id))
@@ -142,7 +148,14 @@ async def create_user_profile(
             avatar=avatar
         )
     except ValidationError as e:
-        raise HTTPException(status_code=422, detail=e.errors())
+        errors = []
+        for error in e.errors():
+            err_copy = error.copy()
+            err_copy.pop("input", None)
+            err_copy.pop("ctx", None)
+            err_copy.pop("url", None)
+            errors.append(err_copy)
+        raise HTTPException(status_code=422, detail=errors)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
