@@ -460,17 +460,17 @@ async def test_profile_creation_fails_on_s3_upload_error(
     ("John1", "Doe", "John1 contains non-english letters"),
     ("John", "Doe1", "Doe1 contains non-english letters"),
 ])
-async def test_profile_creation_invalid_name(client, jwt_manager, first_name, last_name, expected_error):
+async def test_profile_creation_invalid_name(client, authenticated_user, jwt_manager, first_name, last_name, expected_error):
     """
     Test that profile creation fails if the first_name or last_name contains non-English letters.
 
     This test sends a profile creation request with invalid names and expects a 422 response
     with an error message containing the specified error text.
     """
-    access_token = jwt_manager.create_access_token({"user_id": 1})
+    user, token = authenticated_user
 
-    profile_url = "/api/v1/profiles/users/1/profile/"
-    headers = {"Authorization": f"Bearer {access_token}"}
+    profile_url = f"/api/v1/profiles/users/{user.id}/profile/"
+    headers = {"Authorization": f"Bearer {token}"}
     files = {
         "first_name": (None, first_name),
         "last_name": (None, last_name),
@@ -488,7 +488,7 @@ async def test_profile_creation_invalid_name(client, jwt_manager, first_name, la
 
 @pytest.mark.asyncio
 @pytest.mark.unit
-async def test_profile_creation_invalid_avatar_format(client, jwt_manager):
+async def test_profile_creation_invalid_avatar_format(client, authenticated_user, jwt_manager):
     """
     Test that profile creation fails if the avatar has an unsupported format.
 
@@ -496,10 +496,10 @@ async def test_profile_creation_invalid_avatar_format(client, jwt_manager):
     which is unsupported. It expects the endpoint to return a 422 status code with an
     error message indicating "Invalid image format".
     """
-    access_token = jwt_manager.create_access_token({"user_id": 1})
+    user, token = authenticated_user
 
-    profile_url = "/api/v1/profiles/users/1/profile/"
-    headers = {"Authorization": f"Bearer {access_token}"}
+    profile_url = f"/api/v1/profiles/users/{user.id}/profile/"
+    headers = {"Authorization": f"Bearer {token}"}
     files = {
         "first_name": (None, "John"),
         "last_name": (None, "Doe"),

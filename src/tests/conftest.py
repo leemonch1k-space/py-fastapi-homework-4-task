@@ -8,7 +8,8 @@ from database import (
     reset_database,
     get_db_contextmanager,
     UserGroupEnum,
-    UserGroupModel
+    UserGroupModel,
+    UserModel
 )
 from database.populate import CSVDatabaseSeeder
 from main import app
@@ -18,6 +19,21 @@ from storages import S3StorageClient
 from tests.doubles.fakes.storage import FakeS3Storage
 from tests.doubles.stubs.emails import StubEmailSender
 
+
+@pytest_asyncio.fixture
+async def authenticated_user(db_session, seed_user_groups, jwt_manager):
+    user = UserModel(
+        email="test_user@example.com",
+        _hashed_password="hashed_pass",
+        group_id=1,
+        is_active=True
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+
+    token = jwt_manager.create_access_token({"user_id": user.id})
+    return user, token
 
 def pytest_configure(config):
     config.addinivalue_line(
