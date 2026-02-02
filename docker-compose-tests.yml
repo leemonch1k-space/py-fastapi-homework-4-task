@@ -67,7 +67,7 @@ services:
       context: .
       dockerfile: docker/minio_mc/Dockerfile
     container_name: minio_mc_theater_test
-    command: [ "/bin/sh", "-c", "/commands/setup_minio.sh" ]
+    command: [ "/bin/sh", "-c", "/commands/setup_minio.sh && tail -f /dev/null" ]
     depends_on:
       minio:
         condition: service_healthy
