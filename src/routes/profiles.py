@@ -159,7 +159,7 @@ async def create_user_profile(
         raise HTTPException(status_code=422, detail=str(e))
 
     _, ext = os.path.splitext(profile_data.avatar.filename)
-    file_name = f"theater-storage/avatars/{user_id}_avatar{ext}" if ext else f"theater-storage/avatars/{user_id}_avatar" # noqa
+    file_name = f"avatars/{user_id}_avatar{ext}" if ext else f"avatars/{user_id}_avatar"
 
     file_content = await profile_data.avatar.read()
 
@@ -173,7 +173,7 @@ async def create_user_profile(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload avatar. Please try again later."
         )
-
+    avatar_url = await s3_client.get_file_url(file_name=file_name)
     new_profile = UserProfileModel(
         user_id=user_id,
         first_name=profile_data.first_name,
@@ -181,7 +181,7 @@ async def create_user_profile(
         gender=profile_data.gender,
         date_of_birth=profile_data.date_of_birth,
         info=profile_data.info,
-        avatar=file_name
+        avatar=avatar_url
     )
 
     db.add(new_profile)
