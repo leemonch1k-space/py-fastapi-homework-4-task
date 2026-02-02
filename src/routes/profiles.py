@@ -104,7 +104,7 @@ async def create_user_profile(
         info: str = Form(...),
         avatar: UploadFile = File(...),
 ) -> ProfileResponseSchema:
-    is_admin = current_user.group_id == 3
+    is_admin = current_user.group_id == UserGroupEnum.ADMIN.value
 
     if current_user.id != user_id and not is_admin:
         raise HTTPException(
