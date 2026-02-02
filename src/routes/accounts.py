@@ -182,7 +182,6 @@ async def register_user(
     },
 )
 async def activate_account(
-        activation_token: str,
         activation_data: UserActivationRequestSchema,
         email: Annotated[EmailSenderInterface, Depends(get_accounts_email_notificator)],
         db: Annotated[AsyncSession, Depends(get_db)],
@@ -198,7 +197,6 @@ async def activate_account(
 
     Args:
         activation_data (UserActivationRequestSchema): Contains the user's email and activation token.
-        activation_token: User activation token.
         email (EmailSenderInterface): The email functions interface.
         db (AsyncSession): The asynchronous database session.
         background_tasks: Fast api background task class.
@@ -213,11 +211,7 @@ async def activate_account(
     stmt = (
         select(ActivationTokenModel)
         .options(joinedload(ActivationTokenModel.user))
-        .join(UserModel)
-        .where(
-            UserModel.email == activation_data.email,
-            ActivationTokenModel.token == activation_data.token
-        )
+        .where(ActivationTokenModel.token == activation_data.token)
     )
     result = await db.execute(stmt)
     token_record = result.scalars().first()
@@ -225,7 +219,7 @@ async def activate_account(
     now_utc = datetime.now(timezone.utc)
 
     if not token_record or cast(datetime, token_record.expires_at).replace(tzinfo=timezone.utc) < now_utc:
-        if token_record and token_record.token == activation_data.token:
+        if token_record:
             await db.delete(token_record)
             await db.commit()
         raise HTTPException(
@@ -243,7 +237,7 @@ async def activate_account(
 
     background_tasks.add_task(
         email.send_activation_complete_email,
-        email=activation_data.email,
+        email=user.email,
         login_link=LOGIN_LINK
     )
 
@@ -351,7 +345,6 @@ async def request_password_reset_token(
     },
 )
 async def reset_password(
-        reset_token: str,
         password_reset_data: PasswordResetCompleteRequestSchema,
         email: Annotated[EmailSenderInterface, Depends(get_accounts_email_notificator)],
         db: Annotated[AsyncSession, Depends(get_db)],
@@ -364,7 +357,6 @@ async def reset_password(
     Deletes the token after a successful password reset.
 
     Args:
-        reset_token: User reset token.
         password_reset_data (PasswordResetCompleteRequestSchema): The request data containing the user's email,
          token, and new password.
         email (EmailSenderInterface): The email functions interface.
