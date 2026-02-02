@@ -159,7 +159,7 @@ async def create_user_profile(
         raise HTTPException(status_code=422, detail=str(e))
 
     _, ext = os.path.splitext(profile_data.avatar.filename)
-    file_name = f"avatars/{user_id}_avatar{ext}" if ext else f"avatars/{user_id}_avatar"
+    file_name = f"theater-storage/avatars/{user_id}_avatar{ext}" if ext else f"theater-storage/avatars/{user_id}_avatar"
 
     file_content = await profile_data.avatar.read()
 
