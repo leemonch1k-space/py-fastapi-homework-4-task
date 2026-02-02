@@ -26,13 +26,13 @@ class ProfileCreateSchema(BaseModel):
     @classmethod
     def validate_first_name(cls, value: str) -> str:
         validate_name(name=value)
-        return value
+        return value.lower()
 
     @field_validator("last_name")
     @classmethod
     def validate_last_name(cls, value: str) -> str:
         validate_name(name=value)
-        return value
+        return value.lower()
 
     @field_validator("gender")
     @classmethod

@@ -15,7 +15,8 @@ from database import (
     get_db,
     UserModel,
     UserProfileModel,
-    GenderEnum
+    GenderEnum,
+    UserGroupEnum
 )
 from config import get_s3_storage_client, get_jwt_auth_manager
 from notifications import EmailSenderInterface, EmailSender
@@ -102,7 +103,9 @@ async def create_user_profile(
         info: str = Form(...),
         avatar: UploadFile = File(...),
 ) -> ProfileResponseSchema:
-    if current_user.id != user_id:
+    is_admin = current_user.group_id == UserGroupEnum.ADMIN.value
+
+    if current_user.id != user_id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to edit this profile."
