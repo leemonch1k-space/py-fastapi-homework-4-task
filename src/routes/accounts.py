@@ -229,7 +229,10 @@ async def activate_account(
 
     user = token_record.user
     if user.is_active:
-        return MessageResponseSchema(message="User account is already active.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User account is already active."
+        )
 
     user.is_active = True
     await db.delete(token_record)
@@ -391,14 +394,21 @@ async def reset_password(
             await db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired password reset token."
+            detail="Invalid email or token."
         )
 
     user = token_record.user
     user.password = password_reset_data.password
 
-    await db.delete(token_record)
-    await db.commit()
+    try:
+        await db.delete(token_record)
+        await db.commit()
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while resetting the password."
+        )
 
     background_tasks.add_task(
         email.send_password_reset_complete_email,
