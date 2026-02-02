@@ -89,7 +89,6 @@ async def get_current_user(
 @router.post(
     "/users/{user_id}/profile/",
     response_model=ProfileResponseSchema,
-    current_user=Annotated[UserModel, Depends(get_current_user)],
     status_code=status.HTTP_201_CREATED
 )
 async def create_user_profile(
@@ -149,7 +148,8 @@ async def create_user_profile(
         )
 
     new_profile = UserProfileModel(
-        profile_data.model_dump(exclude={"avatar"}),
+        **profile_data.model_dump(exclude={"avatar"}),
+        user_id=user_id,
         avatar=file_url
     )
     try:

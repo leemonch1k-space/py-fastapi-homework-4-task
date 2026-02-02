@@ -41,7 +41,7 @@ PASSWORD_RESET_LINK = "http://127.0.0.1/password-reset/request/"
 PASSWORD_RESET_COMPLETE_LINK = "http://127.0.0.1/reset-password/complete/"
 
 
-async def get_user_group(db: Annotated[AsyncSession, Depends(get_db)]) -> None:
+async def get_user_group(db: Annotated[AsyncSession, Depends(get_db)]) -> UserGroupModel:
     stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
     result = await db.execute(stmt)
     user_group = result.scalars().first()
@@ -83,7 +83,7 @@ async def get_user_group(db: Annotated[AsyncSession, Depends(get_db)]) -> None:
 )
 async def register_user(
         user_data: UserRegistrationRequestSchema,
-        user_group: Depends(get_user_group),
+        user_group: Annotated[UserGroupModel, Depends(get_user_group)],
         email: Annotated[EmailSenderInterface, Depends(get_accounts_email_notificator)],
         db: Annotated[AsyncSession, Depends(get_db)],
         background_tasks: BackgroundTasks
@@ -227,11 +227,6 @@ async def activate_account(
             await db.delete(token_record)
             await db.commit()
 
-            background_tasks.add_task(
-                email.send_activation_complete_email,
-                email=activation_data.email,
-                login_link=LOGIN_LINK
-            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired activation token."
@@ -247,6 +242,12 @@ async def activate_account(
     user.is_active = True
     await db.delete(token_record)
     await db.commit()
+
+    background_tasks.add_task(
+        email.send_activation_complete_email,
+        email=activation_data.email,
+        login_link=LOGIN_LINK
+    )
 
     return MessageResponseSchema(message="User account activated successfully.")
 
@@ -397,12 +398,6 @@ async def reset_password(
         if token_record and token_record.token == reset_token:
             await db.run_sync(lambda s: s.delete(token_record))
             await db.commit()
-            background_tasks.add_task(
-                email.send_password_reset_complete_email(
-                    email=user.email,
-                    login_link=LOGIN_LINK
-                )
-            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid email or token."
@@ -427,6 +422,12 @@ async def reset_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while resetting the password."
         )
+
+    background_tasks.add_task(
+        email.send_password_reset_complete_email,
+        email=user.email,
+        login_link=LOGIN_LINK
+    )
 
     return MessageResponseSchema(message="Password reset successfully.")
 
